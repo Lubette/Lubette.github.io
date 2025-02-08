@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh">
+    <head prefix="og: https://ogp.me/ns#">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  
+  <title>关于C++中的条件变量的简单解释 - Lubette的博客</title>
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+    <link rel='manifest' href='/manifest.json'>
+  
+
+  
+  
+  
+  <meta property="og:title" content="关于C++中的条件变量的简单解释 - Lubette的博客" />
+  
+  <meta property="og:type" content="article" />
+  
+  <meta property="og:url" content="https://lubette.github.io/2023/08/10/About-Cpp-Condition-variables/index.html" />
+  
+  <meta property="og:image" content="/favicon.png" />
+  
+  <meta property="og:article:published_time" content="2023-08-10T03:52:51.000Z" />
+  
+  <meta property="og:article:author" content="JinHong Zeng" />
+  
+  
+
+  
+<link rel="stylesheet" href="/css/var.css">
+
+  
+<link rel="stylesheet" href="/css/main.css">
+
+  
+<link rel="stylesheet" href="/css/typography.css">
+
+  
+<link rel="stylesheet" href="/css/code-highlighting.css">
+
+  
+<link rel="stylesheet" href="/css/components.css">
+
+  
+<link rel="stylesheet" href="/css/nav.css">
+
+  
+<link rel="stylesheet" href="/css/paginator.css">
+
+  
+<link rel="stylesheet" href="/css/footer.css">
+
+  
+<link rel="stylesheet" href="/css/post-list.css">
+
+  
+  
+<link rel="stylesheet" href="/css/rainbow-banner.css">
+
+  
+  
+  
+<link rel="stylesheet" href="/css/toc.css">
+
+  
+  
+  
+  
+  
+<link rel="stylesheet" href="/css/post.css">
+
+  
+  
+  
+  
+  
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+    <body
+        data-color-scheme="auto"
+        data-uppercase-categories="true"
+        
+        data-rainbow-banner="true"
+        data-rainbow-banner-shown="auto"
+        data-rainbow-banner-month="6"
+        data-rainbow-banner-colors="#e50000,#ff8d00,#ffee00,#008121,#004cff,#760188"
+        
+        data-config-root="/"
+        
+        data-toc="true"
+        data-toc-max-depth="2"
+        
+        
+    >
+        <nav id="theme-nav">
+    <div class="inner">
+        <a class="title" href="/">Blog</a>
+        <div class="nav-arrow"></div>
+        <div class="nav-items">
+            <a class="nav-item nav-item-home" href="/">Home</a>
+            
+            
+            <a class="nav-item" href="/archives">Archives</a>
+            
+            
+            
+            <a class="nav-item" href="/about">About</a>
+            
+            
+            
+            <a class="nav-item nav-item-github nav-item-icon" href="https://github.com/lubette" target="_blank" aria-label="GitHub">&nbsp;</a>
+            
+            
+        </div>
+    </div>
+</nav>
+        
+<article class="post">
+    <div class="meta">
+        
+
+        
+        <div class="date" id="date">
+            <span>August</span>
+            <span>10,</span>
+            <span>2023</span>
+        </div>
+        
+
+        <h1 class="title">关于C++中的条件变量的简单解释</h1>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="content">
+        <p>条件变量（condition variable）这是C++11加入的一个类 用于线程之间的通信</p>
+<span id="more"></span>
+
+<p>condition variable 类是同步原语[1] 能同时阻塞多个线程 直到共享变量被修改并通知 condition variable<br>时经过判断解除阻塞</p>
+<p>下面演示条件变量的简单用法并且解释作用</p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;condition_variable&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;thread&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;mutex&gt;</span></span>
+
+std::condition_variable cv;
+std::mutex mutex;
+<span class="type">bool</span> variable = <span class="literal">false</span>;
+
+<span class="function"><span class="type">void</span> <span class="title">Print</span><span class="params">()</span> </span>&#123;
+     <span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lock</span><span class="params">(mutex)</span></span>;
+     cv.<span class="built_in">wait</span>(lock, [&amp;] &#123; <span class="keyword">return</span> variable; &#125;);
+     std::cout &lt;&lt; <span class="string">&quot;Hello World\n&quot;</span>;
+&#125;
+
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    <span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lock</span><span class="params">(mutex)</span></span>;
+    <span class="function">std::thread <span class="title">Thread</span><span class="params">(Print)</span></span>;
+    std::this_thread::<span class="built_in">sleep_for</span>(std::chrono::<span class="built_in">seconds</span>(<span class="number">5</span>));
+    variable = <span class="literal">true</span>;
+    lock.<span class="built_in">unlock</span>();
+    cv.<span class="built_in">notify_one</span>();
+    Thread.<span class="built_in">join</span>();
+    <span class="keyword">return</span> <span class="number">0</span>;
+&#125;</code></pre>
+
+<p>声明所需变量</p>
+<p>cv：条件变量 上文解释过</p>
+<p>mutex：互斥锁 对临界区[2]上锁避免竞态条件</p>
+<p>variable：布尔 在 Print 函数中用来判断是否解除阻塞</p>
+<pre><code class="highlight cpp">std::condition_variable cv;
+std::mutex mutex;
+<span class="type">bool</span> variable = <span class="literal">false</span>;</code></pre>
+
+<p>使用 mutex 初始化 unique_lock[3]</p>
+<pre><code class="highlight cpp"><span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lock</span><span class="params">(mutex)</span></span>;</code></pre>
+
+<p>阻塞线程</p>
+<p>wait 需要传入两个参数</p>
+<p>一个是unique_lock用于获取互斥锁（mutex）</p>
+<p>一个是返回布尔（bool）的函数，在被唤醒后，如果返回值为真（true）就解除阻塞</p>
+<pre><code class="highlight cpp">cv.<span class="built_in">wait</span>(lock, [&amp;] &#123; <span class="keyword">return</span> variable; &#125;);</code></pre>
+
+<p>输出 Hello World 代表函数执行完毕</p>
+<pre><code class="highlight cpp">std::cout &lt;&lt; <span class="string">&quot;Hello World\n&quot;</span>;</code></pre>
+
+<p>创建线程执行 Print 函数</p>
+<pre><code class="highlight cpp"><span class="function">std::thread <span class="title">Thread</span><span class="params">(Print)</span></span>;</code></pre>
+
+<p>将主线程暂停5秒</p>
+<pre><code class="highlight cpp">std::this_thread::<span class="built_in">sleep_for</span>(std::chrono::<span class="built_in">seconds</span>(<span class="number">5</span>));</code></pre>
+
+<p>修改共享变量</p>
+<p>解锁并通知条件变量 Print 中的 wait 判断后解除阻塞</p>
+<pre><code class="highlight cpp">lock.<span class="built_in">unlock</span>();
+cv.<span class="built_in">notify_one</span>();</code></pre>
+
+<p>等待线程执行完毕</p>
+<pre><code class="highlight cpp">Thread.<span class="built_in">join</span>();</code></pre>
+
+<p><strong>提示：即使共享变量是原子的，也必须在互斥下修改它，以正确地发布修改到等待的线程</strong></p>
+<p>[1] 同步原语：如互斥锁，对临界区上锁以避免竞态条件保证线程安全性</p>
+<p>[2] 临界区：指的是一个访问共享资源的代码块</p>
+<p>[3] unique_lock：是一种通用互斥包装器，提供了更灵活的加锁和解锁操作</p>
+<p>最后来听首歌放松一下吧</p>
+
+    </div>
+
+    
+    <div class="about">
+        <h1>About this Post</h1>
+        <div class="details">
+            <p>This post is written by JinHong Zeng, licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc/4.0">CC BY-NC 4.0</a>.</p>
+        </div>
+        
+        <p class="tags">
+            
+            <i class="icon"></i>
+            <a href="/tags/CPP/" class="tag">#CPP</a>
+        </p>
+        
+    </div>
+    
+
+    <div class="container post-prev-next">
+        
+        <a href="/2023/08/11/Understanding-a-Simple-Example-of-epoll-Usage-in-Linux/" class="next">
+            <div>
+                <div class="text">
+                    <p class="label">Next</p>
+                    <h3 class="title">Linux下epoll的简单解释</h3>
+                </div>
+            </div>
+        </a>
+        
+        
+        <a href="/2023/08/08/Should-I-pass-by-value-pass-by-pointer-or-pass-by-reference/" class="prev">
+            <div>
+                <div class="text">
+                    <p class="label">Previous</p>
+                    <h3 class="title">函数传值、引用还是指针？</>
+                </div>
+            </div>
+        </a>
+        
+    </div>
+
+    
+        
+        
+    
+</article>
+
+        <footer>
+    <div class="inner">
+        <div class="links">
+            
+            <div class="group">
+                <h2 class="title">Blog</h2>
+                
+                <a href="/" class="item">Blog</a>
+                
+                <a href="/archives" class="item">Archives</a>
+                
+                <a href="/tags" class="item">Tags</a>
+                
+                <a href="/about" class="item">About</a>
+                
+                <a href="/atom.xml" class="item">RSS</a>
+                
+            </div>
+            
+            <div class="group">
+                <h2 class="title">Me</h2>
+                
+                <a target="_blank" rel="noopener" href="https://github.com/lubette" class="item">GitHub</a>
+                
+                <a href="mailto:zjh_34@qq.com" class="item">Email</a>
+                
+            </div>
+            
+        </div>
+        <span>&copy; 2025 JinHong Zeng<br>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> </span>
+        
+        
+            <br>
+            <div class="color-scheme-toggle" role="radiogroup" id="theme-color-scheme-toggle">
+                <label>
+                    <input type="radio" value="light">
+                    <span>Light</span>
+                </label>
+                <label>
+                    <input type="radio" value="dark">
+                    <span>Dark</span>
+                </label>
+                <label>
+                    <input type="radio" value="auto">
+                    <span>Auto</span>
+                </label>
+            </div>
+        
+    </div>
+</footer>
+
+
+        
+<script src="/js/main.js"></script>
+
+        
+        
+        
+
+        
+        <script src="https://unpkg.com/scrollreveal"></script>
+        <script>
+            window.addEventListener('load', () => {
+                ScrollReveal({ delay: 250, reset: true, easing: 'cubic-bezier(0, 0, 0, 1)' })
+                ScrollReveal().reveal('.post-list-item .cover-img img')
+                ScrollReveal().reveal('.post-list-item, .card, .content p img, .content .block-large img', { distance: '60px', origin: 'bottom', duration: 800 })
+            })
+        </script>
+        
+    </body>
+</html>

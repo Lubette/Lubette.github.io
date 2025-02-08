@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh">
+    <head prefix="og: https://ogp.me/ns#">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  
+  <title>Linux下使用Socket实现Tcp服务器的示例以及解释 - Lubette的博客</title>
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+    <link rel='manifest' href='/manifest.json'>
+  
+
+  
+  
+  
+  <meta property="og:title" content="Linux下使用Socket实现Tcp服务器的示例以及解释 - Lubette的博客" />
+  
+  <meta property="og:type" content="article" />
+  
+  <meta property="og:url" content="https://lubette.github.io/2023/08/17/TCP-Server-Implementation-with-Socket-Programming-in-Linux/index.html" />
+  
+  <meta property="og:image" content="/favicon.png" />
+  
+  <meta property="og:article:published_time" content="2023-08-17T03:52:51.000Z" />
+  
+  <meta property="og:article:author" content="JinHong Zeng" />
+  
+  
+
+  
+<link rel="stylesheet" href="/css/var.css">
+
+  
+<link rel="stylesheet" href="/css/main.css">
+
+  
+<link rel="stylesheet" href="/css/typography.css">
+
+  
+<link rel="stylesheet" href="/css/code-highlighting.css">
+
+  
+<link rel="stylesheet" href="/css/components.css">
+
+  
+<link rel="stylesheet" href="/css/nav.css">
+
+  
+<link rel="stylesheet" href="/css/paginator.css">
+
+  
+<link rel="stylesheet" href="/css/footer.css">
+
+  
+<link rel="stylesheet" href="/css/post-list.css">
+
+  
+  
+<link rel="stylesheet" href="/css/rainbow-banner.css">
+
+  
+  
+  
+<link rel="stylesheet" href="/css/toc.css">
+
+  
+  
+  
+  
+  
+<link rel="stylesheet" href="/css/post.css">
+
+  
+  
+  
+  
+  
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+    <body
+        data-color-scheme="auto"
+        data-uppercase-categories="true"
+        
+        data-rainbow-banner="true"
+        data-rainbow-banner-shown="auto"
+        data-rainbow-banner-month="6"
+        data-rainbow-banner-colors="#e50000,#ff8d00,#ffee00,#008121,#004cff,#760188"
+        
+        data-config-root="/"
+        
+        data-toc="true"
+        data-toc-max-depth="2"
+        
+        
+    >
+        <nav id="theme-nav">
+    <div class="inner">
+        <a class="title" href="/">Blog</a>
+        <div class="nav-arrow"></div>
+        <div class="nav-items">
+            <a class="nav-item nav-item-home" href="/">Home</a>
+            
+            
+            <a class="nav-item" href="/archives">Archives</a>
+            
+            
+            
+            <a class="nav-item" href="/about">About</a>
+            
+            
+            
+            <a class="nav-item nav-item-github nav-item-icon" href="https://github.com/lubette" target="_blank" aria-label="GitHub">&nbsp;</a>
+            
+            
+        </div>
+    </div>
+</nav>
+        
+<article class="post">
+    <div class="meta">
+        
+
+        
+        <div class="date" id="date">
+            <span>August</span>
+            <span>17,</span>
+            <span>2023</span>
+        </div>
+        
+
+        <h1 class="title">Linux下使用Socket实现Tcp服务器的示例以及解释</h1>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="content">
+        <p>Linux下使用Socket实现Tcp服务器  并不困难简略下来就的流程就一段</p>
+<p>socket –&gt; bind –&gt; listen –&gt; accept –&gt; recv&#x2F;send(处理数据) –&gt; close</p>
+<p>这就是Linux下实现服务器的流程，接下来我会给出代码并且逐步解析</p>
+<p>这之中用到的函数都可以在这篇文章里看到解释</p>
+<p>[ Linux下Socket编程中需要用到的函数以及结构体 ](<a target="_blank" rel="noopener" href="https://zjhzzy.github.io/2023/08/15/Socket-">https://zjhzzy.github.io/2023/08/15/Socket-</a><br>Programming-Functions-and-Structures-on-Linux&#x2F;)</p>
+<p>因为只是示例程序就 <strong>不进行错误判断</strong> 了，编写项目时还是需要错误判断的</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>这段代码简单的实现了一个Tcp服务器，功能是接收对端发送来的消息并且输出，再将消息发送给对端</p>
+<p>接下来简单的解释这些代码</p>
+<p>​<br>    1<br>    2<br>    3<br>    4<br>    5<br>    6<br>    7<br>    8<br>    9<br>    10<br>    11<br>    12<br>    13<br>    14<br>    15<br>    16<br>    17<br>    18<br>    19<br>    20<br>    21<br>    22<br>    23<br>    24<br>    25<br>    26<br>    27<br>    28<br>    29<br>    30<br>    31<br>    32<br>    33<br>    34<br>    35<br>    36<br>    37</p>
+<p>|</p>
+<p>​</p>
+<pre><code class="highlight c++"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/socket.h&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;arpa/inet.h&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstring&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span>
+
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+  <span class="type">int</span> sockfd = <span class="built_in">socket</span>(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  sockaddr_in addr = &#123;<span class="number">0</span>&#125;;
+  addr.sin_addr.s_addr = INADDR_ANY;
+  addr.sin_port = <span class="built_in">htons</span>(<span class="number">8000</span>);
+  addr.sin_family = AF_INET;
+
+  <span class="built_in">bind</span>(sockfd, (sockaddr *)&amp;addr, <span class="keyword">sizeof</span> addr);
+
+  <span class="built_in">listen</span>(sockfd, <span class="number">10</span>);
+
+  sockaddr_in clientAddr = &#123;<span class="number">0</span>&#125;;
+  <span class="type">socklen_t</span> clientAddrLen = <span class="keyword">sizeof</span> clientAddr;
+  <span class="type">int</span> clientfd = <span class="built_in">accept</span>(sockfd, (sockaddr *)&amp;clientAddr, &amp;clientAddrLen);
+  <span class="keyword">while</span> (<span class="literal">true</span>) &#123;
+	<span class="type">char</span> buffer[<span class="number">1024</span>] = &#123;<span class="number">0</span>&#125;;
+	<span class="type">int</span> recvByte = <span class="built_in">recv</span>(clientfd, buffer, <span class="number">1024</span>, <span class="number">0</span>);
+	<span class="keyword">if</span> (recvByte &lt;= <span class="number">0</span>) &#123;
+	  <span class="built_in">close</span>(clientfd);
+	  <span class="keyword">break</span>;
+	&#125;
+	<span class="built_in">printf</span>(<span class="string">&quot;%s Say: %s&quot;</span>, <span class="built_in">inet_ntoa</span>(clientAddr.sin_addr), buffer);
+	<span class="type">int</span> sendByte = <span class="built_in">send</span>(clientfd, buffer, <span class="number">1024</span>, <span class="number">0</span>);
+	<span class="built_in">memset</span>(buffer, <span class="number">0</span>, <span class="number">1024</span>);
+	<span class="keyword">if</span> (sendByte &lt;= <span class="number">0</span>) &#123;
+	  <span class="built_in">close</span>(clientfd);
+	  <span class="keyword">break</span>;
+	&#125;
+  &#125;
+  <span class="built_in">close</span>(sockfd);
+&#125;</code></pre>
+
+
+
+<p>—|—</p>
+<p>声明一些需要的变量</p>
+<p>向socket中传三个参数</p>
+<p><strong>AF_INET</strong> ：使用 IPV4 地址族</p>
+<p><strong>SOCK_STREAM</strong> ：流式套接字</p>
+<p><strong>IPPRORO_TCP</strong> ：采用TCP协议</p>
+<p>设置addr的值</p>
+<p>因为是服务器所以将地址设置为 INADDR_ANY(0.0.0.0)</p>
+<p>端口通过htons函数转换后赋值给sin_port</p>
+<p>设置地址族为 AF_INET(IPV4)</p>
+<p>​<br>    1<br>    2<br>    3<br>    4<br>    5</p>
+<p>|</p>
+<p>​<br>    int sockfd &#x3D; socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);<br>    sockaddr_in addr &#x3D; {0};<br>    addr.sin_addr.s_addr &#x3D; INADDR_ANY;<br>    addr.sin_port &#x3D; htons(8000);<br>    addr.sin_family &#x3D; AF_INET;</p>
+<p>—|—</p>
+<p>绑定地址并启用监听(被动触发模式)</p>
+<p>​<br>    1<br>    2</p>
+<p>|</p>
+<p>​<br>    bind(sockfd, (sockaddr *)&amp;addr, sizeof addr);<br>    listen(sockfd, 10);</p>
+<p>—|—</p>
+<p>声明clientAddr去接收客户端的地址，accept返回套接字的文件描述符</p>
+<p>​<br>    1<br>    2<br>    3</p>
+<p>|</p>
+<p>​<br>    sockaddr_in clientAddr &#x3D; {0};<br>    socklen_t clientAddrLen &#x3D; sizeof clientAddr;<br>    int clientfd &#x3D; accept(sockfd, (sockaddr *)&amp;clientAddr, &amp;clientAddrLen);</p>
+<p>—|—</p>
+<p>声明buffer去接收客户端发送的数据，进行错误检查是否成功接收到数据，如果没有就关闭套接字</p>
+<p>​<br>    1<br>    2<br>    3<br>    4<br>    5<br>    6</p>
+<p>|</p>
+<p>​<br>    char buffer[1024] &#x3D; {0};<br>    int recvByte &#x3D; recv(clientfd, buffer, 1024, 0);<br>    if (recvByte &lt;&#x3D; 0) {<br>      close(clientfd);<br>      break;<br>    }</p>
+<p>—|—</p>
+<p>输出对端发送来的数据，并将其发送给对端，使用memset清空buffer，进行错误检查是否成功发送数据，如果没有就关闭套接字</p>
+<p>​<br>    1<br>    2<br>    3<br>    4<br>    5<br>    6<br>    7</p>
+<p>|</p>
+<p>​<br>    printf(“%s Say: %s”, inet_ntoa(clientAddr.sin_addr), buffer);<br>    int sendByte &#x3D; send(clientfd, buffer, 1024, 0);<br>    memset(buffer, 0, 1024);<br>    if (sendByte &lt;&#x3D; 0) {<br>      close(clientfd);<br>      break;<br>    }</p>
+<p>—|—</p>
+<p>如果运行没有出错会输出一下消息</p>
+<p>​<br>    1<br>    2</p>
+<p>|</p>
+<p>​<br>    对端地址 Say: 对端发来的消息<br>    对端地址 Say: 对端发来的消息</p>
+<p>—|—</p>
+
+    </div>
+
+    
+    <div class="about">
+        <h1>About this Post</h1>
+        <div class="details">
+            <p>This post is written by JinHong Zeng, licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc/4.0">CC BY-NC 4.0</a>.</p>
+        </div>
+        
+        <p class="tags">
+            
+            <i class="icon"></i>
+            <a href="/tags/C/" class="tag">#C</a><a href="/tags/Linux/" class="tag">#Linux</a><a href="/tags/Network/" class="tag">#Network</a>
+        </p>
+        
+    </div>
+    
+
+    <div class="container post-prev-next">
+        
+        <a href="/2023/09/30/variant%E3%80%81optional-and-any/" class="next">
+            <div>
+                <div class="text">
+                    <p class="label">Next</p>
+                    <h3 class="title">variant、optional 和 any</h3>
+                </div>
+            </div>
+        </a>
+        
+        
+        <a href="/2023/08/16/Socket-Programming-Functions-and-Structures-on-Linux/" class="prev">
+            <div>
+                <div class="text">
+                    <p class="label">Previous</p>
+                    <h3 class="title">Linux下Socket编程中需要用到的函数以及结构体</>
+                </div>
+            </div>
+        </a>
+        
+    </div>
+
+    
+        
+        
+    
+</article>
+
+        <footer>
+    <div class="inner">
+        <div class="links">
+            
+            <div class="group">
+                <h2 class="title">Blog</h2>
+                
+                <a href="/" class="item">Blog</a>
+                
+                <a href="/archives" class="item">Archives</a>
+                
+                <a href="/tags" class="item">Tags</a>
+                
+                <a href="/about" class="item">About</a>
+                
+                <a href="/atom.xml" class="item">RSS</a>
+                
+            </div>
+            
+            <div class="group">
+                <h2 class="title">Me</h2>
+                
+                <a target="_blank" rel="noopener" href="https://github.com/lubette" class="item">GitHub</a>
+                
+                <a href="mailto:zjh_34@qq.com" class="item">Email</a>
+                
+            </div>
+            
+        </div>
+        <span>&copy; 2025 JinHong Zeng<br>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> </span>
+        
+        
+            <br>
+            <div class="color-scheme-toggle" role="radiogroup" id="theme-color-scheme-toggle">
+                <label>
+                    <input type="radio" value="light">
+                    <span>Light</span>
+                </label>
+                <label>
+                    <input type="radio" value="dark">
+                    <span>Dark</span>
+                </label>
+                <label>
+                    <input type="radio" value="auto">
+                    <span>Auto</span>
+                </label>
+            </div>
+        
+    </div>
+</footer>
+
+
+        
+<script src="/js/main.js"></script>
+
+        
+        
+        
+
+        
+        <script src="https://unpkg.com/scrollreveal"></script>
+        <script>
+            window.addEventListener('load', () => {
+                ScrollReveal({ delay: 250, reset: true, easing: 'cubic-bezier(0, 0, 0, 1)' })
+                ScrollReveal().reveal('.post-list-item .cover-img img')
+                ScrollReveal().reveal('.post-list-item, .card, .content p img, .content .block-large img', { distance: '60px', origin: 'bottom', duration: 800 })
+            })
+        </script>
+        
+    </body>
+</html>

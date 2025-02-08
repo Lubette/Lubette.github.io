@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh">
+    <head prefix="og: https://ogp.me/ns#">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  
+  <title>variant、optional 和 any - Lubette的博客</title>
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+    <link rel='manifest' href='/manifest.json'>
+  
+
+  
+  
+  
+  <meta property="og:title" content="variant、optional 和 any - Lubette的博客" />
+  
+  <meta property="og:type" content="article" />
+  
+  <meta property="og:url" content="https://lubette.github.io/2023/09/30/variant%E3%80%81optional-and-any/index.html" />
+  
+  <meta property="og:image" content="/favicon.png" />
+  
+  <meta property="og:article:published_time" content="2023-09-30T03:52:51.000Z" />
+  
+  <meta property="og:article:author" content="JinHong Zeng" />
+  
+  
+
+  
+<link rel="stylesheet" href="/css/var.css">
+
+  
+<link rel="stylesheet" href="/css/main.css">
+
+  
+<link rel="stylesheet" href="/css/typography.css">
+
+  
+<link rel="stylesheet" href="/css/code-highlighting.css">
+
+  
+<link rel="stylesheet" href="/css/components.css">
+
+  
+<link rel="stylesheet" href="/css/nav.css">
+
+  
+<link rel="stylesheet" href="/css/paginator.css">
+
+  
+<link rel="stylesheet" href="/css/footer.css">
+
+  
+<link rel="stylesheet" href="/css/post-list.css">
+
+  
+  
+<link rel="stylesheet" href="/css/rainbow-banner.css">
+
+  
+  
+  
+<link rel="stylesheet" href="/css/toc.css">
+
+  
+  
+  
+  
+  
+<link rel="stylesheet" href="/css/post.css">
+
+  
+  
+  
+  
+  
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+    <body
+        data-color-scheme="auto"
+        data-uppercase-categories="true"
+        
+        data-rainbow-banner="true"
+        data-rainbow-banner-shown="auto"
+        data-rainbow-banner-month="6"
+        data-rainbow-banner-colors="#e50000,#ff8d00,#ffee00,#008121,#004cff,#760188"
+        
+        data-config-root="/"
+        
+        data-toc="true"
+        data-toc-max-depth="2"
+        
+        
+    >
+        <nav id="theme-nav">
+    <div class="inner">
+        <a class="title" href="/">Blog</a>
+        <div class="nav-arrow"></div>
+        <div class="nav-items">
+            <a class="nav-item nav-item-home" href="/">Home</a>
+            
+            
+            <a class="nav-item" href="/archives">Archives</a>
+            
+            
+            
+            <a class="nav-item" href="/about">About</a>
+            
+            
+            
+            <a class="nav-item nav-item-github nav-item-icon" href="https://github.com/lubette" target="_blank" aria-label="GitHub">&nbsp;</a>
+            
+            
+        </div>
+    </div>
+</nav>
+        
+<article class="post">
+    <div class="meta">
+        
+
+        
+        <div class="date" id="date">
+            <span>September</span>
+            <span>30,</span>
+            <span>2023</span>
+        </div>
+        
+
+        <h1 class="title">variant、optional 和 any</h1>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="content">
+        <p>variant、optional和any 这三个模板类是用来取代C风格的一些不安全的代码</p>
+<p>optional —— 持有T或为空<br>variant&lt;T,U&gt; —— 持有T或U（类似于union）<br>any —— 持有任意类型（类似于void*)</p>
+<pre><code class="highlight cpp">std::optional&lt;<span class="type">int</span>&gt; var1 = <span class="number">7</span>;
+std::variant&lt;<span class="type">int</span>,string&gt; var2 = <span class="number">7</span>;
+std::any var3 = <span class="number">7</span>;
+<span class="keyword">auto</span> x1 = *var1 ;               <span class="comment">// 对 optional 解引用</span>
+<span class="keyword">auto</span> x2 = std::<span class="built_in">get</span>&lt;<span class="type">int</span>&gt;(var2);       <span class="comment">// 像访问 tuple 一样访问 variant</span>
+<span class="keyword">auto</span> x3 = std::<span class="built_in">any_cast</span>&lt;<span class="type">int</span>&gt;(var3);  <span class="comment">// 转换 any</span></code></pre>
+
+<h2 id="variant"><a href="#variant" class="headerlink" title="variant"></a>variant</h2><p>std::variant 表示一个类型安全的联合体（变化体）std::variant<br>的一个实例在任意时刻要么保有它的一个可选类型之一的值，要么在错误情况下无值</p>
+<pre><code class="highlight cpp"><span class="comment">// C风格</span>
+<span class="keyword">union</span> <span class="title class_">variant</span>&#123;
+    <span class="type">int</span>,
+    <span class="type">char</span>
+&#125;
+<span class="comment">// C++风格</span>
+<span class="keyword">typedef</span> std::variant&lt;<span class="type">int</span>,<span class="type">char</span>&gt; variant;</code></pre>
+
+<h4 id="visit"><a href="#visit" class="headerlink" title="visit"></a>visit</h4><p>以一或多个 variant 所保有的各实参调用所提供的函数对象</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;type_traits&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;variant&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    <span class="comment">// 创建一个 std::variant 变量，可以存放 int 或 char 类型的值，并初始化为整数 1022。</span>
+    std::variant&lt;<span class="type">int</span>, <span class="type">char</span>&gt; variant = <span class="number">1022</span>;
+    <span class="comment">// 使用 std::visit 访问 variant 中的值，根据存储的类型输出不同的消息。</span>
+    std::<span class="built_in">visit</span>(
+        [](<span class="keyword">auto</span> &amp;&amp;arg) &#123;
+        <span class="keyword">if</span> (std::is_same_v&lt;std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(arg)&gt;, <span class="type">int</span>&gt;) &#123;
+            <span class="built_in">printf</span>(<span class="string">&quot;variant中存放的是int类型&quot;</span>); <span class="comment">// 如果存放的是int类型，输出此消息。</span>
+        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (std::is_same_v&lt;std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(arg)&gt;, <span class="type">char</span>&gt;) &#123;
+            <span class="built_in">printf</span>(<span class="string">&quot;variant中存放的是char类型&quot;</span>); <span class="comment">// 如果存放的是char类型，输出此消息。</span>
+        &#125;
+        &#125;,
+        variant);
+    <span class="comment">// 将 variant 的值更改为字符 &#x27;A&#x27;。</span>
+    variant = <span class="string">&#x27;A&#x27;</span>;
+    <span class="comment">// 再次使用 std::visit 访问 variant 中的值，根据存储的类型输出不同的消息。</span>
+    std::<span class="built_in">visit</span>(
+        [](<span class="keyword">auto</span> &amp;&amp;arg) &#123;
+        <span class="keyword">if</span> (std::is_same_v&lt;std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(arg)&gt;, <span class="type">int</span>&gt;) &#123;
+            <span class="built_in">printf</span>(<span class="string">&quot;variant中存放的是int类型&quot;</span>); <span class="comment">// 如果存放的是int类型，输出此消息。</span>
+        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (std::is_same_v&lt;std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(arg)&gt;, <span class="type">char</span>&gt;) &#123;
+            <span class="built_in">printf</span>(<span class="string">&quot;variant中存放的是char类型&quot;</span>); <span class="comment">// 如果存放的是char类型，输出此消息。</span>
+        &#125;
+        &#125;,
+        variant);
+&#125;</code></pre>
+
+<p>这里只是给出部分示例，因为有些我自己还没看明白，所以后面会更新的</p>
+<h4 id="holds-alternative"><a href="#holds-alternative" class="headerlink" title="holds_alternative"></a>holds_alternative</h4><p>检查某个 variant 是否当前持有某个给定类型</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;variant&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    <span class="comment">// 创建一个 std::variant 变量，可以存放 int 或 char 类型的值，并初始化为整数 1022。</span>
+    std::variant&lt;<span class="type">int</span>, <span class="type">char</span>&gt; variant = <span class="number">1022</span>;
+    <span class="comment">// 检查 variant 中是否存放的是 int 类型的值。</span>
+    <span class="keyword">if</span> (std::<span class="built_in">holds_alternative</span>&lt;<span class="type">int</span>&gt;(variant)) &#123;
+        <span class="comment">// 如果存放的是 int 类型的值，使用 std::get&lt;int&gt; 获取它，并以整数格式输出。</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;%d\n&quot;</span>, std::<span class="built_in">get</span>&lt;<span class="type">int</span>&gt;(variant));
+    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (std::<span class="built_in">holds_alternative</span>&lt;<span class="type">char</span>&gt;(variant)) &#123;
+        <span class="comment">// 如果存放的是 char 类型的值，使用 std::get&lt;char&gt; 获取它，并以字符格式输出。</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;%c\n&quot;</span>, std::<span class="built_in">get</span>&lt;<span class="type">char</span>&gt;(variant));
+    &#125;
+    <span class="comment">// 将 variant 的值更改为字符 &#x27;A&#x27;。</span>
+    variant = <span class="string">&#x27;A&#x27;</span>;
+    <span class="comment">// 检查 variant 中是否存放的是 int 类型的值。</span>
+    <span class="keyword">if</span> (std::<span class="built_in">holds_alternative</span>&lt;<span class="type">int</span>&gt;(variant)) &#123;
+    <span class="comment">// 如果存放的是 int 类型的值，使用 std::get&lt;int&gt; 获取它，并以整数格式输出。</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;%d\n&quot;</span>, std::<span class="built_in">get</span>&lt;<span class="type">int</span>&gt;(variant));
+    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (std::<span class="built_in">holds_alternative</span>&lt;<span class="type">char</span>&gt;(variant)) &#123;
+        <span class="comment">// 如果存放的是 char 类型的值，使用 std::get&lt;char&gt; 获取它，并以字符格式输出。</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;%c\n&quot;</span>, std::<span class="built_in">get</span>&lt;<span class="type">char</span>&gt;(variant));
+    &#125;
+&#125;</code></pre>
+
+<h4 id="std-get-std-variant"><a href="#std-get-std-variant" class="headerlink" title="std::get(std::variant)"></a>std::get(std::variant)</h4><p>以给定索引或类型（如果类型唯一）读取 variant 的值，错误时抛出异常</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;variant&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    <span class="comment">// 创建一个 std::variant 变量，可以存放 int 或 char 类型的值，并初始化为整数 1022。</span>
+    std::variant&lt;<span class="type">int</span>, <span class="type">char</span>&gt; variant = <span class="number">1022</span>;
+    <span class="comment">// 使用get函数获取值并输出</span>
+    <span class="built_in">printf</span>(<span class="string">&quot;%d\n&quot;</span>, std::<span class="built_in">get</span>&lt;<span class="type">int</span>&gt;(variant));
+&#125;</code></pre>
+
+<h2 id="optional"><a href="#optional" class="headerlink" title="optional"></a>optional</h2><p>std::optional 管理一个可选的容纳值，既可以存在也可以不存在的值</p>
+<pre><code class="highlight cpp"><span class="comment">// C风格</span>
+<span class="type">int</span> optional = <span class="literal">NULL</span>;
+<span class="comment">// C++风格</span>
+std::optional&lt;<span class="type">int</span>&gt; optional = std::<span class="literal">nullopt</span>;</code></pre>
+
+<h4 id="has-value"><a href="#has-value" class="headerlink" title="has_value"></a>has_value</h4><p>检查对象是否含值</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;optional&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    std::optional&lt;<span class="type">int</span>&gt; optional = std::<span class="literal">nullopt</span>;
+    <span class="keyword">if</span> (!optional.<span class="built_in">has_value</span>()) &#123;
+        <span class="comment">// 如果optional为空就输出</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;optional为空&quot;</span>);
+    &#125;
+&#125;</code></pre>
+
+<h2 id="any"><a href="#any" class="headerlink" title="any"></a>any</h2><p>std::any 描述用于任何可拷贝构造类型的单个值的类型安全容器</p>
+<pre><code class="highlight cpp"><span class="comment">// C风格</span>
+<span class="type">int</span> value = <span class="number">10</span>;
+<span class="type">void</span> *any = &amp;value;
+<span class="comment">// C++风格</span>
+std::any any = <span class="number">10</span>;</code></pre>
+
+<h4 id="has-value-1"><a href="#has-value-1" class="headerlink" title="has_value"></a>has_value</h4><p>检查对象是否含有值</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;any&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    std::any any = <span class="number">10</span>;
+    <span class="keyword">if</span> (any.<span class="built_in">has_value</span>()) &#123;
+        <span class="comment">// 如果any不为空就输出</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;any不为空\n&quot;</span>);
+    &#125;
+&#125;</code></pre>
+
+<h4 id="type"><a href="#type" class="headerlink" title="type"></a>type</h4><p>返回所含值的 typeid</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;any&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    std::any any = <span class="number">10</span>;
+    <span class="keyword">if</span> (any.<span class="built_in">type</span>() == <span class="built_in">typeid</span>(<span class="type">int</span>)) &#123;
+        <span class="comment">// any中存放的是int则输出</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;any中存放的是int类型\n&quot;</span>);
+    &#125;
+&#125;</code></pre>
+
+<h4 id="any-cast"><a href="#any-cast" class="headerlink" title="any_cast"></a>any_cast</h4><p>对被容纳对象的类型安全访问</p>
+<p><strong>示例</strong></p>
+<pre><code class="highlight cpp"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;any&gt;</span></span>
+<span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span>
+<span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;
+    std::any any = <span class="number">10</span>;
+    <span class="keyword">if</span> (any.<span class="built_in">type</span>() == <span class="built_in">typeid</span>(<span class="type">int</span>)) &#123;
+        <span class="comment">// any中存放的是int则输出</span>
+        <span class="built_in">printf</span>(<span class="string">&quot;any中存放的是%d\n&quot;</span>,std::<span class="built_in">any_cast</span>&lt;<span class="type">int</span>&gt;(any));
+    &#125;
+&#125;</code></pre>
+
+<p>目前variant、optional和any的使用也就这么点，后续我还会补充一些我遗漏的内容</p>
+
+    </div>
+
+    
+    <div class="about">
+        <h1>About this Post</h1>
+        <div class="details">
+            <p>This post is written by JinHong Zeng, licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc/4.0">CC BY-NC 4.0</a>.</p>
+        </div>
+        
+        <p class="tags">
+            
+            <i class="icon"></i>
+            <a href="/tags/CPP/" class="tag">#CPP</a>
+        </p>
+        
+    </div>
+    
+
+    <div class="container post-prev-next">
+        
+        <a href="/2023/10/01/pair-and-tuple/" class="next">
+            <div>
+                <div class="text">
+                    <p class="label">Next</p>
+                    <h3 class="title">Pair和Tuple的使用</h3>
+                </div>
+            </div>
+        </a>
+        
+        
+        <a href="/2023/08/17/TCP-Server-Implementation-with-Socket-Programming-in-Linux/" class="prev">
+            <div>
+                <div class="text">
+                    <p class="label">Previous</p>
+                    <h3 class="title">Linux下使用Socket实现Tcp服务器的示例以及解释</>
+                </div>
+            </div>
+        </a>
+        
+    </div>
+
+    
+        
+        
+    
+</article>
+
+        <footer>
+    <div class="inner">
+        <div class="links">
+            
+            <div class="group">
+                <h2 class="title">Blog</h2>
+                
+                <a href="/" class="item">Blog</a>
+                
+                <a href="/archives" class="item">Archives</a>
+                
+                <a href="/tags" class="item">Tags</a>
+                
+                <a href="/about" class="item">About</a>
+                
+                <a href="/atom.xml" class="item">RSS</a>
+                
+            </div>
+            
+            <div class="group">
+                <h2 class="title">Me</h2>
+                
+                <a target="_blank" rel="noopener" href="https://github.com/lubette" class="item">GitHub</a>
+                
+                <a href="mailto:zjh_34@qq.com" class="item">Email</a>
+                
+            </div>
+            
+        </div>
+        <span>&copy; 2025 JinHong Zeng<br>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> </span>
+        
+        
+            <br>
+            <div class="color-scheme-toggle" role="radiogroup" id="theme-color-scheme-toggle">
+                <label>
+                    <input type="radio" value="light">
+                    <span>Light</span>
+                </label>
+                <label>
+                    <input type="radio" value="dark">
+                    <span>Dark</span>
+                </label>
+                <label>
+                    <input type="radio" value="auto">
+                    <span>Auto</span>
+                </label>
+            </div>
+        
+    </div>
+</footer>
+
+
+        
+<script src="/js/main.js"></script>
+
+        
+        
+        
+
+        
+        <script src="https://unpkg.com/scrollreveal"></script>
+        <script>
+            window.addEventListener('load', () => {
+                ScrollReveal({ delay: 250, reset: true, easing: 'cubic-bezier(0, 0, 0, 1)' })
+                ScrollReveal().reveal('.post-list-item .cover-img img')
+                ScrollReveal().reveal('.post-list-item, .card, .content p img, .content .block-large img', { distance: '60px', origin: 'bottom', duration: 800 })
+            })
+        </script>
+        
+    </body>
+</html>
